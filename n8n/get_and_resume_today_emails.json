@@ -1,0 +1,235 @@
+{
+  "name": "get and resume today emails",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "36c794f4-7198-4269-9cb8-fee2671e1a07",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": true,
+        "simple": false,
+        "filters": {
+          "receivedAfter": "={{ DateTime.now().format('yyyy-MM-dd') }}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "b1936efb-f23f-43dc-9cb1-6eb222ee923b",
+      "name": "Get many messages",
+      "webhookId": "a2e70f7f-bf10-4b5b-b7a7-b70a45ae0695",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "DpiAbEYHgonVaYr6",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nconst mails = []\n\nfor (const item of $input.all()) {\n  mails.push({\n    id: item.json.id,\n    date: item.json.date,\n    subject: item.json.subject,\n    from: item.json.from.text\n  })\n}\n\nreturn mails;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "c6099398-a2f8-49ed-bcfb-2240ca74b6ef",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.emails }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Tu vas recevoir un tableau JSON contenant un ou plusieurs emails du jour.  \nTa tâche : produire uniquement un résumé global en français, sans salutations ni explications,  \ndans un texte continu qui ne dépasse pas 500 caractères.  \nNe réponds qu’avec le résumé."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        832,
+        96
+      ],
+      "id": "591cea58-e175-4a0a-be63-e663cf79f758",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.1-8b-instant",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        832,
+        272
+      ],
+      "id": "ced8b441-4475-4c85-991c-1db57da6067e",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "GUqpIpg04fzjBTj5",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "emails",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        592,
+        0
+      ],
+      "id": "c67ce750-26bb-4d4f-94e6-77a1d69da831",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1168,
+        16
+      ],
+      "id": "29ebfbf8-552c-4a95-8885-8993fe595d02",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "operation": "toJson",
+        "options": {
+          "fileName": "emails-today.json"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1376,
+        16
+      ],
+      "id": "c9b43dee-148f-41b4-a35a-a7521a410958",
+      "name": "Convert to File"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get many messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many messages": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "afe07ab3-9002-4f76-9ec2-5292898114d0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "91ead389e104d45dedf61aabb4d7cebbb842976b4f7ba64230a9c2c3c5c7df85"
+  },
+  "id": "MrYKRK5V6X90eCZd",
+  "tags": []
+}
